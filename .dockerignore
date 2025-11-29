@@ -1,0 +1,49 @@
+# Git files
+.git
+.gitignore
+.gitkeep
+
+# Python cache
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+.eggs
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+.tmp/
+*.tmp
+
+# Output files (don't include in image)
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Documentation (not needed in container)
+README.md
+USAGE_EXAMPLES.md
+PRD.md
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Claude Code
+.claude/

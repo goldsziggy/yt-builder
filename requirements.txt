@@ -1,0 +1,10 @@
+# YouTube Video Builder Dependencies
+
+# Image processing for quote rendering
+Pillow>=10.0.0
+
+# Note: FFmpeg must be installed separately on your system
+# Installation instructions:
+# - macOS: brew install ffmpeg
+# - Ubuntu/Debian: sudo apt-get install ffmpeg
+# - Windows: Download from https://ffmpeg.org/download.html

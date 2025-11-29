@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  yt-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: yt-builder:latest
+    container_name: yt-builder
+
+    # Mount local directories to container
+    volumes:
+      # Mount media directories
+      - ./videos:/app/videos:ro        # Read-only access to input videos
+      - ./music:/app/music:ro          # Read-only access to music files
+      - ./quotes:/app/quotes:ro        # Read-only access to quotes
+      - ./sounds:/app/sounds:ro        # Read-only access to sound effects
+
+      # Mount output directory (read-write)
+      - ./output:/app/output
+
+      # Mount temp directory for intermediate files
+      - ./.tmp:/app/.tmp
+
+    # Set working directory
+    working_dir: /app
+
+    # Default command - override with docker-compose run
+    command: ["--help"]
+
+    # Resource limits (optional, adjust as needed)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '4'
+    #       memory: 4G
+    #     reservations:
+    #       cpus: '2'
+    #       memory: 2G
+
+# Example usage:
+# docker-compose run --rm yt-builder --duration 60 --quotes-duration 5 --quotes-min-between 10 --quotes-max-between 20 -o /app/output/test.mp4
