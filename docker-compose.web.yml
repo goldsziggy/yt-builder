@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  yt-builder-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: yt-builder:latest
+    container_name: yt-builder-web
+
+    ports:
+      - "5000:5000"
+
+    volumes:
+      # Mount media directories (read-only)
+      - ./videos:/app/videos:ro
+      - ./music:/app/music:ro
+      - ./quotes:/app/quotes:ro
+      - ./sounds:/app/sounds:ro
+
+      # Mount output directory (read-write)
+      - ./output:/app/output
+
+      # Mount temp directory
+      - ./.tmp:/app/.tmp
+
+    environment:
+      # Web server configuration
+      PORT: "5000"
+      DEBUG: "false"
+      SECRET_KEY: "${SECRET_KEY:-change-this-in-production}"
+
+      # Optional: Set default build parameters via env vars
+      # These will be used as defaults in the web UI
+      YT_BUILDER_RESOLUTION: "1920x1080"
+      YT_BUILDER_FPS: "30"
+      YT_BUILDER_TRANSITION: "crossfade"
+      YT_BUILDER_MUSIC_VOLUME: "0.7"
+      YT_BUILDER_SOUNDS_VOLUME: "0.5"
+      YT_BUILDER_QUOTE_STYLE: "centered"
+      YT_BUILDER_VERBOSE: "true"
+
+    # Run the web server
+    command: ["python", "web_server.py"]
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/files"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # Resource limits (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+
+    restart: unless-stopped
+
+# Example usage:
+# docker-compose -f docker-compose.web.yml up -d
+#
+# Access the web interface at: http://localhost:5000
+#
+# View logs:
+# docker-compose -f docker-compose.web.yml logs -f
+#
+# Stop the server:
+# docker-compose -f docker-compose.web.yml down

@@ -51,4 +51,12 @@ output/
 
 # OS
 .DS_Store
+# macOS resource fork files
+._*
+.AppleDouble
+.LSOverride
 Thumbs.db
+
+# Secrets directory
+secrets/
+!secrets/.gitkeep

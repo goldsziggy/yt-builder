@@ -28,6 +28,8 @@ class QuoteRenderer:
     def _load_quotes(self) -> List[str]:
         """
         Load all quotes from quotes directory.
+        - Ignores files with 'example' in the filename
+        - Supports quotes_all.txt with multiple quotes delimited by double quotes
 
         Returns:
             List of quote texts
@@ -40,17 +42,82 @@ class QuoteRenderer:
 
         quotes = []
         for quote_file in quote_files:
+            # Skip files with 'example' in the filename
+            if 'example' in quote_file.name.lower():
+                logger.debug(f"Skipping example file: {quote_file.name}")
+                continue
+
             try:
                 with open(quote_file, 'r', encoding='utf-8') as f:
-                    quote_text = f.read().strip()
-                    if quote_text:
-                        quotes.append(quote_text)
-                    else:
+                    content = f.read().strip()
+
+                    if not content:
                         logger.warning(f"Empty quote file: {quote_file}")
+                        continue
+
+                    # Special handling for quotes_all.txt
+                    if quote_file.name == 'quotes_all.txt':
+                        parsed_quotes = self._parse_quotes_all(content, quote_file)
+                        quotes.extend(parsed_quotes)
+                    else:
+                        # Regular single-quote file
+                        quotes.append(content)
+
+            except UnicodeDecodeError as e:
+                logger.warning(f"Skipping file with encoding issue: {quote_file.name}")
             except Exception as e:
                 logger.error(f"Failed to read quote file {quote_file}: {e}")
 
         logger.info(f"Loaded {len(quotes)} quote(s)")
+        return quotes
+
+    def _parse_quotes_all(self, content: str, file_path: Path) -> List[str]:
+        """
+        Parse quotes_all.txt file to extract multiple quotes.
+        Each quote should be enclosed in double quotes.
+
+        Args:
+            content: File content
+            file_path: Path to file (for logging)
+
+        Returns:
+            List of parsed quotes
+        """
+        quotes = []
+        in_quote = False
+        current_quote = []
+        i = 0
+
+        while i < len(content):
+            char = content[i]
+
+            if char == '"':
+                if in_quote:
+                    # End of quote
+                    quote_text = ''.join(current_quote).strip()
+                    if quote_text:
+                        quotes.append(quote_text)
+                        logger.debug(f"Parsed quote from {file_path.name}: {quote_text[:50]}...")
+                    current_quote = []
+                    in_quote = False
+                else:
+                    # Start of quote
+                    in_quote = True
+                i += 1
+            elif char == '\\' and i + 1 < len(content) and content[i + 1] == '"':
+                # Escaped quote - include it in the quote text
+                if in_quote:
+                    current_quote.append('"')
+                i += 2
+            else:
+                if in_quote:
+                    current_quote.append(char)
+                i += 1
+
+        if in_quote:
+            logger.warning(f"Unclosed quote in {file_path.name}")
+
+        logger.info(f"Parsed {len(quotes)} quote(s) from {file_path.name}")
         return quotes
 
     def generate_quote_timings(self) -> List[Dict[str, Any]]:
@@ -264,14 +331,17 @@ class QuoteRenderer:
         # Build drawtext filters
         filters = []
         for timing in timings:
+            # Wrap text to fit within 80% of screen width
+            wrapped_text = self._wrap_text_for_ffmpeg(timing['text'], width)
+
             # Escape text for ffmpeg
-            text = timing['text'].replace("'", "\\'").replace(":", "\\:")
+            text = wrapped_text.replace("'", "\\'").replace(":", "\\:")
 
             # Determine position
             if self.config.quote_style == 'top':
                 y_pos = f'h*0.1'
             elif self.config.quote_style == 'bottom':
-                y_pos = f'h*0.8'
+                y_pos = f'h*0.85-text_h'
             else:  # centered
                 y_pos = f'(h-text_h)/2'
 
@@ -295,3 +365,52 @@ class QuoteRenderer:
             filters.append(filter_str)
 
         return ','.join(filters)
+
+    def _wrap_text_for_ffmpeg(self, text: str, screen_width: int) -> str:
+        """
+        Wrap text for ffmpeg drawtext filter.
+        Uses newlines to break text into multiple lines.
+
+        Args:
+            text: Text to wrap
+            screen_width: Screen width in pixels
+
+        Returns:
+            Text with newlines for wrapping
+        """
+        # Calculate approximate character limit per line
+        # Font size is h/20, and we want text to fit in 80% of width
+        # Rough estimate: each character is about fontsize/2 pixels wide
+        max_width = int(screen_width * 0.8)
+        font_size = screen_width / 1920 * 54  # Approximate font size for 1080p
+        chars_per_line = int(max_width / (font_size * 0.6))  # 0.6 is average char width ratio
+
+        # Ensure minimum chars per line
+        chars_per_line = max(chars_per_line, 20)
+
+        # Split text into words
+        words = text.split()
+        lines = []
+        current_line = []
+        current_length = 0
+
+        for word in words:
+            word_length = len(word)
+
+            # Check if adding this word would exceed the limit
+            if current_length + word_length + len(current_line) > chars_per_line and current_line:
+                # Start a new line
+                lines.append(' '.join(current_line))
+                current_line = [word]
+                current_length = word_length
+            else:
+                # Add word to current line
+                current_line.append(word)
+                current_length += word_length
+
+        # Add the last line
+        if current_line:
+            lines.append(' '.join(current_line))
+
+        # Join lines with newline character for ffmpeg
+        return '\n'.join(lines)

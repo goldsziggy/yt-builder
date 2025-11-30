@@ -8,7 +8,7 @@ from typing import List, Optional
 
 from .config import Config
 from .validator import get_files_by_format, AUDIO_FORMATS, validate_file_integrity
-from .utils import get_temp_file
+from .utils import get_temp_file, run_ffmpeg_with_progress
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,11 @@ class AudioMixer:
             random.shuffle(music_files)
             logger.info("Shuffled music files")
 
-        logger.info(f"Creating music track from {len(music_files)} file(s)")
+        num_files = len(music_files)
+        logger.info(f"Creating music track from {num_files} file(s)")
+
+        if num_files > 1:
+            logger.info("Processing and combining audio files...")
 
         # Get total duration of all music
         music_durations = [self._get_audio_duration(f) for f in music_files]
@@ -95,7 +99,7 @@ class AudioMixer:
         # Determine how many times to loop
         if total_duration < self.config.duration:
             loops_needed = int(self.config.duration / total_duration) + 1
-            logger.info(f"Looping music sequence {loops_needed} times")
+            logger.info(f"Looping music sequence {loops_needed} times to reach {self.config.duration:.0f}s")
             final_music = music_files * loops_needed
         else:
             final_music = music_files
@@ -104,12 +108,15 @@ class AudioMixer:
         if len(final_music) == 1:
             concatenated = self._process_single_audio(final_music[0])
         else:
+            logger.info(f"Concatenating {len(final_music)} audio file(s)...")
             concatenated = self._concatenate_audio(final_music)
 
         # Loop to exact duration
+        logger.info(f"Looping audio to exact duration ({self.config.duration:.0f}s)...")
         looped = self._loop_audio_to_duration(concatenated, self.config.duration)
 
         # Apply volume and fades
+        logger.info("Applying volume and fade effects...")
         output = self._apply_music_effects(looped)
 
         return output
@@ -142,7 +149,7 @@ class AudioMixer:
             str(output)
         ]
 
-        self._run_ffmpeg(cmd)
+        self._run_ffmpeg(cmd, f"Processing sound: {sound_file.name}")
         return output
 
     def _get_audio_duration(self, audio_path: Path) -> float:
@@ -191,12 +198,12 @@ class AudioMixer:
             str(output_file)
         ]
 
-        self._run_ffmpeg(cmd)
+        self._run_ffmpeg(cmd, "Normalizing audio")
         return output_file
 
     def _concatenate_audio(self, audio_paths: List[Path]) -> Path:
         """
-        Concatenate multiple audio files with crossfade.
+        Concatenate multiple audio files.
 
         Args:
             audio_paths: List of audio file paths
@@ -204,7 +211,11 @@ class AudioMixer:
         Returns:
             Path to concatenated audio
         """
-        logger.info(f"Concatenating {len(audio_paths)} audio files")
+        num_files = len(audio_paths)
+        logger.info(f"Concatenating {num_files} audio file(s)")
+
+        if num_files > 5:
+            logger.info("Processing multiple audio files. Progress will be shown below...")
 
         # Create concat file
         concat_file = get_temp_file(self.config, '.txt')
@@ -226,7 +237,7 @@ class AudioMixer:
             str(output_file)
         ]
 
-        self._run_ffmpeg(cmd)
+        self._run_ffmpeg(cmd, "Concatenating audio files")
         return output_file
 
     def _loop_audio_to_duration(self, audio_path: Path, duration: float) -> Path:
@@ -253,7 +264,7 @@ class AudioMixer:
             str(output_file)
         ]
 
-        self._run_ffmpeg(cmd)
+        self._run_ffmpeg(cmd, "Looping audio to duration")
         return output_file
 
     def _apply_music_effects(self, audio_path: Path) -> Path:
@@ -285,7 +296,7 @@ class AudioMixer:
             str(output_file)
         ]
 
-        self._run_ffmpeg(cmd)
+        self._run_ffmpeg(cmd, "Applying music effects")
         return output_file
 
     def _mix_tracks(self, music_track: Optional[Path], sound_tracks: List[Path]) -> Path:
@@ -299,7 +310,11 @@ class AudioMixer:
         Returns:
             Path to mixed audio
         """
-        logger.info("Mixing audio tracks together")
+        total_tracks = (1 if music_track else 0) + len(sound_tracks)
+        logger.info(f"Mixing {total_tracks} audio track(s) together")
+
+        if total_tracks > 1:
+            logger.info("This may take a moment. Progress will be shown below...")
 
         output_file = get_temp_file(self.config, '.mp3')
 
@@ -338,33 +353,18 @@ class AudioMixer:
                 str(output_file)
             ]
 
-        self._run_ffmpeg(cmd)
+        self._run_ffmpeg(cmd, "Mixing audio tracks")
         return output_file
 
-    def _run_ffmpeg(self, cmd: List[str]) -> None:
+    def _run_ffmpeg(self, cmd: List[str], operation: str = "Processing audio") -> None:
         """
-        Run ffmpeg command with error handling.
+        Run ffmpeg command with progress reporting.
 
         Args:
             cmd: Command as list of strings
+            operation: Description of the operation
 
         Raises:
             RuntimeError: If ffmpeg fails
         """
-        if self.config.verbose:
-            logger.debug(f"Running: {' '.join(cmd)}")
-
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            if self.config.verbose and result.stderr:
-                logger.debug(result.stderr)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"FFmpeg failed: {e}")
-            if e.stderr:
-                logger.error(f"Error output: {e.stderr}")
-            raise RuntimeError(f"Audio processing failed: {e}")
+        run_ffmpeg_with_progress(cmd, operation, self.config.verbose)

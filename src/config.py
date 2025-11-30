@@ -1,5 +1,6 @@
 """Configuration management for YouTube Video Builder"""
 
+import os
 from dataclasses import dataclass
 from typing import Tuple
 from pathlib import Path
@@ -45,8 +46,20 @@ class Config:
 
     def __post_init__(self):
         """Initialize derived properties."""
+        # Override directories from environment variables if set
+        if 'YT_BUILDER_VIDEOS_DIR' in os.environ:
+            self.videos_dir = Path(os.environ['YT_BUILDER_VIDEOS_DIR'])
+        if 'YT_BUILDER_MUSIC_DIR' in os.environ:
+            self.music_dir = Path(os.environ['YT_BUILDER_MUSIC_DIR'])
+        if 'YT_BUILDER_QUOTES_DIR' in os.environ:
+            self.quotes_dir = Path(os.environ['YT_BUILDER_QUOTES_DIR'])
+        if 'YT_BUILDER_SOUNDS_DIR' in os.environ:
+            self.sounds_dir = Path(os.environ['YT_BUILDER_SOUNDS_DIR'])
+        if 'YT_BUILDER_TEMP_DIR' in os.environ:
+            self.temp_dir = Path(os.environ['YT_BUILDER_TEMP_DIR'])
+
         # Ensure temp directory exists
-        self.temp_dir.mkdir(exist_ok=True)
+        self.temp_dir.mkdir(parents=True, exist_ok=True)
 
         # Convert output path to Path object
         if isinstance(self.output_path, str):

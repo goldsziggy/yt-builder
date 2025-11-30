@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Builder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .workflow-selector {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .workflow-buttons {
+            display: inline-flex;
+            gap: 15px;
+        }
+
+        .workflow-btn {
+            background: white;
+            color: #667eea;
+            padding: 15px 30px;
+            border-radius: 8px;
+            border: 2px solid white;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .workflow-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 255, 255, 0.3);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .main-content.three-column {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .label-description {
+            font-size: 0.85em;
+            color: #666;
+            font-weight: normal;
+            margin-top: 2px;
+        }
+
+        input[type="number"],
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input[type="number"]:focus,
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        /* File Upload Styles */
+        .upload-section {
+            margin-bottom: 25px;
+        }
+
+        .upload-section h3 {
+            color: #667eea;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+
+        .dropzone {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+
+        .dropzone:hover,
+        .dropzone.drag-over {
+            background: #e7f3ff;
+            border-color: #764ba2;
+        }
+
+        .dropzone-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .dropzone-text {
+            color: #666;
+            font-size: 0.95em;
+        }
+
+        .dropzone-hint {
+            color: #999;
+            font-size: 0.85em;
+            margin-top: 5px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-list {
+            list-style: none;
+            margin-top: 10px;
+        }
+
+        .file-item {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        .file-item-name {
+            color: #333;
+            flex: 1;
+        }
+
+        .file-item-delete {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .file-item-delete:hover {
+            background: #c82333;
+        }
+
+        .file-count-badge {
+            background: #667eea;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        .jobs-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .job-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .job-card.completed {
+            border-left-color: #28a745;
+        }
+
+        .job-card.failed {
+            border-left-color: #dc3545;
+        }
+
+        .job-card.running {
+            border-left-color: #ffc107;
+        }
+
+        .job-card.preparing {
+            border-left-color: #17a2b8;
+        }
+
+        .job-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .job-id {
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .job-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-preparing {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-queued {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status-running {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-cancelled {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+        }
+
+        .job-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85em;
+        }
+
+        .btn-download {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-cancel {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-youtube {
+            background: #FF0000;
+            color: white;
+        }
+
+        .btn-youtube:hover {
+            background: #CC0000;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            overflow: auto;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: #667eea;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .file-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .file-info h3 {
+            font-size: 1em;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .file-count {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content,
+            .main-content.three-column {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .alert {
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 YouTube Video Builder</h1>
+            <p>Create looping videos with music, sounds, and quotes</p>
+        </div>
+
+        <!-- Workflow Selection -->
+        <div id="workflow-selector" class="workflow-selector">
+            <div class="workflow-buttons">
+                <button class="workflow-btn" onclick="startNewJob()">
+                    📤 Upload New Files
+                </button>
+                <button class="workflow-btn" onclick="useExistingFiles()">
+                    📁 Use Existing Files
+                </button>
+            </div>
+        </div>
+
+        <!-- Upload Workflow (hidden by default) -->
+        <div id="upload-workflow" class="hidden">
+            <div class="main-content three-column">
+                <!-- File Uploads -->
+                <div class="card">
+                    <h2>📤 Upload Files</h2>
+
+                    <div id="upload-alert" class="alert alert-info">
+                        Job <strong>#<span id="current-job-id">-</span></strong> created. Upload your files below, then click "Configure & Start".
+                    </div>
+
+                    <!-- Videos Upload -->
+                    <div class="upload-section">
+                        <h3>🎥 Videos <span class="file-count-badge" id="videos-count">0</span></h3>
+                        <div class="dropzone" onclick="document.getElementById('videos-input').click()"
+                             ondragover="handleDragOver(event)"
+                             ondragleave="handleDragLeave(event)"
+                             ondrop="handleDrop(event, 'videos')">
+                            <div class="dropzone-icon">📹</div>
+                            <div class="dropzone-text">Click or drag files here</div>
+                            <div class="dropzone-hint">.mp4, .mov, .avi, .mkv</div>
+                        </div>
+                        <input type="file" id="videos-input" accept=".mp4,.mov,.avi,.mkv" multiple onchange="uploadFiles('videos', this.files)">
+                        <ul class="file-list" id="videos-list"></ul>
+                    </div>
+
+                    <!-- Music Upload -->
+                    <div class="upload-section">
+                        <h3>🎵 Music <span class="file-count-badge" id="music-count">0</span></h3>
+
+                        <!-- Suno Playlist Input -->
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; font-size: 0.9em; color: #667eea; margin-bottom: 5px;">
+                                🎼 Suno Playlist URL
+                            </label>
+                            <div style="display: flex; gap: 8px;">
+                                <input
+                                    type="text"
+                                    id="suno-playlist-url"
+                                    placeholder="https://suno.com/playlist/..."
+                                    style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em;"
+                                >
+                                <button
+                                    class="btn"
+                                    style="padding: 8px 16px; background: #667eea; color: white; font-size: 0.9em;"
+                                    onclick="retrieveSunoPlaylist()"
+                                    id="suno-retrieve-btn"
+                                >
+                                    📥 Retrieve
+                                </button>
+                            </div>
+                            <div id="suno-status" style="margin-top: 5px; font-size: 0.85em; color: #666;"></div>
+                        </div>
+
+                        <ul class="file-list" id="music-list"></ul>
+                    </div>
+
+                    <!-- Sounds Upload -->
+                    <div class="upload-section">
+                        <h3>🔊 Sounds <span class="file-count-badge" id="sounds-count">0</span></h3>
+                        <div class="dropzone" onclick="document.getElementById('sounds-input').click()"
+                             ondragover="handleDragOver(event)"
+                             ondragleave="handleDragLeave(event)"
+                             ondrop="handleDrop(event, 'sounds')">
+                            <div class="dropzone-icon">🔔</div>
+                            <div class="dropzone-text">Click or drag files here</div>
+                            <div class="dropzone-hint">.mp3, .wav, .m4a, .aac, .ogg</div>
+                        </div>
+                        <input type="file" id="sounds-input" accept=".mp3,.wav,.m4a,.aac,.ogg" multiple onchange="uploadFiles('sounds', this.files)">
+                        <ul class="file-list" id="sounds-list"></ul>
+                    </div>
+
+                    <!-- Quotes Upload -->
+                    <div class="upload-section">
+                        <h3>💬 Quotes <span class="file-count-badge" id="quotes-count">0</span></h3>
+                        <div class="dropzone" onclick="document.getElementById('quotes-input').click()"
+                             ondragover="handleDragOver(event)"
+                             ondragleave="handleDragLeave(event)"
+                             ondrop="handleDrop(event, 'quotes')">
+                            <div class="dropzone-icon">📝</div>
+                            <div class="dropzone-text">Click or drag files here</div>
+                            <div class="dropzone-hint">.txt</div>
+                        </div>
+                        <input type="file" id="quotes-input" accept=".txt" multiple onchange="uploadFiles('quotes', this.files)">
+                        <ul class="file-list" id="quotes-list"></ul>
+                    </div>
+
+                    <button class="btn btn-secondary" style="width: 100%; margin-top: 15px;" onclick="cancelUpload()">
+                        ← Back to Workflow Selection
+                    </button>
+                </div>
+
+                <!-- Configuration Form -->
+                <div class="card">
+                    <h2>⚙️ Configuration</h2>
+
+                    <div class="alert alert-warning" id="config-warning">
+                        Upload at least one video file to enable configuration.
+                    </div>
+
+                    <form id="config-form">
+                        <div class="form-group">
+                            <label>
+                                Duration (seconds)
+                                <span class="label-description">Total length of the output video</span>
+                            </label>
+                            <input type="number" id="duration" name="duration" value="600" min="1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Resolution
+                                <span class="label-description">Output video resolution</span>
+                            </label>
+                            <select id="resolution" name="resolution">
+                                <option value="1920x1080">1080p (1920x1080)</option>
+                                <option value="1280x720">720p (1280x720)</option>
+                                <option value="3840x2160">4K (3840x2160)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                FPS (Frames per second)
+                                <span class="label-description">Video frame rate</span>
+                            </label>
+                            <input type="number" id="fps" name="fps" value="30" min="24" max="60" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Transition Effect
+                                <span class="label-description">Effect between video clips</span>
+                            </label>
+                            <select id="transition" name="transition">
+                                <option value="crossfade">Crossfade</option>
+                                <option value="fade">Fade</option>
+                                <option value="none">None</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Quote Duration (seconds)
+                                <span class="label-description">How long each quote appears</span>
+                            </label>
+                            <input type="number" id="quotes_duration" name="quotes_duration" value="5" step="0.1" min="0.1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Quote Interval (min - max seconds)
+                                <span class="label-description">Time between quotes</span>
+                            </label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <input type="number" id="quotes_min_between" name="quotes_min_between" value="10" step="0.1" min="0" required>
+                                <input type="number" id="quotes_max_between" name="quotes_max_between" value="30" step="0.1" min="0" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Quote Style
+                                <span class="label-description">Text position on screen</span>
+                            </label>
+                            <select id="quote_style" name="quote_style">
+                                <option value="centered">Centered</option>
+                                <option value="bottom">Bottom</option>
+                                <option value="top">Top</option>
+                                <option value="minimal">Minimal</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Music Volume
+                                <span class="label-description">0.0 (silent) to 1.0 (full)</span>
+                            </label>
+                            <input type="number" id="music_volume" name="music_volume" value="0.7" step="0.1" min="0" max="1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Sound Effects Volume
+                                <span class="label-description">0.0 (silent) to 1.0 (full)</span>
+                            </label>
+                            <input type="number" id="sounds_volume" name="sounds_volume" value="0.5" step="0.1" min="0" max="1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="music_shuffle" name="music_shuffle">
+                                <label for="music_shuffle">Shuffle Music Files</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="quotes_shuffle" name="quotes_shuffle">
+                                <label for="quotes_shuffle">Shuffle Quotes</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="verbose" name="verbose" checked>
+                                <label for="verbose">Verbose Logging</label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
+                            🚀 Configure & Start Job
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Jobs List -->
+                <div class="card">
+                    <h2>📋 Build Jobs</h2>
+                    <div id="jobs-list" class="jobs-list">
+                        <p style="text-align: center; color: #999;">No jobs yet.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Existing Files Workflow -->
+        <div id="existing-workflow" class="hidden">
+            <div class="main-content">
+                <!-- Configuration Form -->
+                <div class="card">
+                    <h2>⚙️ Configuration</h2>
+
+                    <div id="file-info" class="file-info">
+                        <h3>📁 Available Media Files</h3>
+                        <div id="file-counts">Loading...</div>
+                    </div>
+
+                    <form id="existing-config-form">
+                        <div class="form-group">
+                            <label>
+                                Duration (seconds)
+                                <span class="label-description">Total length of the output video</span>
+                            </label>
+                            <input type="number" name="duration" value="600" min="1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Resolution
+                                <span class="label-description">Output video resolution</span>
+                            </label>
+                            <select name="resolution">
+                                <option value="1920x1080">1080p (1920x1080)</option>
+                                <option value="1280x720">720p (1280x720)</option>
+                                <option value="3840x2160">4K (3840x2160)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                FPS (Frames per second)
+                                <span class="label-description">Video frame rate</span>
+                            </label>
+                            <input type="number" name="fps" value="30" min="24" max="60" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Transition Effect
+                                <span class="label-description">Effect between video clips</span>
+                            </label>
+                            <select name="transition">
+                                <option value="crossfade">Crossfade</option>
+                                <option value="fade">Fade</option>
+                                <option value="none">None</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Quote Duration (seconds)
+                                <span class="label-description">How long each quote appears</span>
+                            </label>
+                            <input type="number" name="quotes_duration" value="5" step="0.1" min="0.1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Quote Interval (min - max seconds)
+                                <span class="label-description">Time between quotes</span>
+                            </label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <input type="number" name="quotes_min_between" value="10" step="0.1" min="0" required>
+                                <input type="number" name="quotes_max_between" value="30" step="0.1" min="0" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Quote Style
+                                <span class="label-description">Text position on screen</span>
+                            </label>
+                            <select name="quote_style">
+                                <option value="centered">Centered</option>
+                                <option value="bottom">Bottom</option>
+                                <option value="top">Top</option>
+                                <option value="minimal">Minimal</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Music Volume
+                                <span class="label-description">0.0 (silent) to 1.0 (full)</span>
+                            </label>
+                            <input type="number" name="music_volume" value="0.7" step="0.1" min="0" max="1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Sound Effects Volume
+                                <span class="label-description">0.0 (silent) to 1.0 (full)</span>
+                            </label>
+                            <input type="number" name="sounds_volume" value="0.5" step="0.1" min="0" max="1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="checkbox-group">
+                                <input type="checkbox" name="music_shuffle">
+                                <label>Shuffle Music Files</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="checkbox-group">
+                                <input type="checkbox" name="quotes_shuffle">
+                                <label>Shuffle Quotes</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="checkbox-group">
+                                <input type="checkbox" name="verbose" checked>
+                                <label>Verbose Logging</label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            🚀 Start Video Build
+                        </button>
+                        <button type="button" class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="backToWorkflowSelection()">
+                            ← Back to Workflow Selection
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Jobs List -->
+                <div class="card">
+                    <h2>📋 Build Jobs</h2>
+                    <div id="existing-jobs-list" class="jobs-list">
+                        <p style="text-align: center; color: #999;">No jobs yet.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- YouTube Upload Modal -->
+    <div id="youtube-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📺 Upload to YouTube</h2>
+                <button class="modal-close" onclick="closeYouTubeModal()">×</button>
+            </div>
+
+            <div id="youtube-auth-section">
+                <div class="alert alert-info">
+                    You need to authenticate with YouTube before uploading.
+                </div>
+                <button class="btn btn-youtube" onclick="authenticateYouTube()" style="width: 100%;">
+                    🔐 Authenticate with YouTube
+                </button>
+            </div>
+
+            <form id="youtube-upload-form" class="hidden">
+                <div class="form-group">
+                    <label>
+                        Video Title *
+                        <span class="label-description">The title that will appear on YouTube</span>
+                    </label>
+                    <input type="text" id="youtube-title" required maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        Description
+                        <span class="label-description">Video description (supports line breaks)</span>
+                    </label>
+                    <textarea id="youtube-description" rows="6" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-family: inherit; resize: vertical;"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        Privacy
+                        <span class="label-description">Who can see this video</span>
+                    </label>
+                    <select id="youtube-privacy">
+                        <option value="private">Private (only you)</option>
+                        <option value="unlisted">Unlisted (anyone with link)</option>
+                        <option value="public">Public (everyone)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        Tags (comma-separated)
+                        <span class="label-description">Help people find your video</span>
+                    </label>
+                    <input type="text" id="youtube-tags" placeholder="tag1, tag2, tag3">
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        Category
+                        <span class="label-description">Video category</span>
+                    </label>
+                    <select id="youtube-category">
+                        <option value="22">People & Blogs</option>
+                        <option value="24">Entertainment</option>
+                        <option value="10">Music</option>
+                        <option value="23">Comedy</option>
+                        <option value="25">News & Politics</option>
+                        <option value="26">Howto & Style</option>
+                        <option value="27">Education</option>
+                        <option value="28">Science & Technology</option>
+                        <option value="20">Gaming</option>
+                        <option value="17">Sports</option>
+                    </select>
+                </div>
+
+                <div id="youtube-upload-status" style="margin-top: 15px; font-size: 0.9em; color: #666;"></div>
+
+                <button type="submit" class="btn btn-youtube" style="width: 100%; margin-top: 15px;" id="youtube-submit-btn">
+                    📤 Upload to YouTube
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let pollInterval = null;
+        let currentJobId = null;
+        let currentFileCounts = { videos: 0, music: 0, sounds: 0, quotes: 0 };
+
+        // Workflow selection
+        function startNewJob() {
+            document.getElementById('workflow-selector').classList.add('hidden');
+            document.getElementById('upload-workflow').classList.remove('hidden');
+            prepareNewJob();
+        }
+
+        function useExistingFiles() {
+            document.getElementById('workflow-selector').classList.add('hidden');
+            document.getElementById('existing-workflow').classList.remove('hidden');
+            loadFileInfo();
+            loadJobs();
+            startPolling();
+        }
+
+        function backToWorkflowSelection() {
+            document.getElementById('existing-workflow').classList.add('hidden');
+            document.getElementById('workflow-selector').classList.remove('hidden');
+            stopPolling();
+        }
+
+        function cancelUpload() {
+            if (confirm('Cancel this job and return to workflow selection?')) {
+                document.getElementById('upload-workflow').classList.add('hidden');
+                document.getElementById('workflow-selector').classList.remove('hidden');
+                currentJobId = null;
+            }
+        }
+
+        // Prepare new job
+        async function prepareNewJob() {
+            try {
+                const response = await fetch('/api/jobs/prepare', { method: 'POST' });
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentJobId = data.job_id;
+                    document.getElementById('current-job-id').textContent = data.job_id;
+                    loadJobFiles();
+                    loadJobs();
+                    startPolling();
+                } else {
+                    alert('Error preparing job: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error preparing job: ' + error.message);
+            }
+        }
+
+        // Drag and drop handlers
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(event) {
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(event, fileType) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+            const files = event.dataTransfer.files;
+            uploadFiles(fileType, files);
+        }
+
+        // Upload files
+        async function uploadFiles(fileType, files) {
+            if (!currentJobId) {
+                alert('No job prepared. Please refresh and try again.');
+                return;
+            }
+
+            if (files.length === 0) return;
+
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('files', file);
+            }
+
+            try {
+                const response = await fetch(`/api/jobs/${currentJobId}/upload/${fileType}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.errors.length > 0) {
+                        alert('Some files failed to upload:\n' + data.errors.join('\n'));
+                    }
+                    currentFileCounts = data.file_counts;
+                    updateFileCounts();
+                    loadJobFiles();
+                    checkEnableSubmit();
+                } else {
+                    alert('Error uploading files: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error uploading files: ' + error.message);
+            }
+        }
+
+        // Retrieve Suno playlist
+        async function retrieveSunoPlaylist() {
+            if (!currentJobId) {
+                alert('No job prepared. Please refresh and try again.');
+                return;
+            }
+
+            const urlInput = document.getElementById('suno-playlist-url');
+            const playlistUrl = urlInput.value.trim();
+
+            if (!playlistUrl) {
+                alert('Please enter a Suno playlist URL');
+                return;
+            }
+
+            if (!playlistUrl.toLowerCase().includes('suno')) {
+                alert('Please enter a valid Suno playlist URL');
+                return;
+            }
+
+            const retrieveBtn = document.getElementById('suno-retrieve-btn');
+            const statusDiv = document.getElementById('suno-status');
+
+            retrieveBtn.disabled = true;
+            retrieveBtn.textContent = '⏳ Downloading...';
+            statusDiv.textContent = 'Fetching playlist and downloading songs...';
+            statusDiv.style.color = '#667eea';
+
+            try {
+                const response = await fetch(`/api/jobs/${currentJobId}/playlist/suno`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: playlistUrl })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const downloadCount = data.downloaded.length;
+                    const errorCount = data.errors.length;
+
+                    if (downloadCount > 0) {
+                        statusDiv.textContent = `✅ Downloaded ${downloadCount} song(s)`;
+                        statusDiv.style.color = '#28a745';
+
+                        // Update file counts
+                        currentFileCounts = data.file_counts;
+                        updateFileCounts();
+                        loadJobFiles();
+                        checkEnableSubmit();
+
+                        // Clear URL input
+                        urlInput.value = '';
+
+                        // Show errors if any
+                        if (errorCount > 0) {
+                            setTimeout(() => {
+                                alert(`Downloaded ${downloadCount} songs.\n\nErrors (${errorCount}):\n${data.errors.join('\n')}`);
+                            }, 500);
+                        }
+                    } else {
+                        statusDiv.textContent = '❌ No songs downloaded';
+                        statusDiv.style.color = '#dc3545';
+
+                        if (errorCount > 0) {
+                            alert('Failed to download songs:\n' + data.errors.join('\n'));
+                        }
+                    }
+                } else {
+                    statusDiv.textContent = '❌ Failed to retrieve playlist';
+                    statusDiv.style.color = '#dc3545';
+                    alert('Error: ' + (data.error || 'Failed to retrieve playlist'));
+                }
+            } catch (error) {
+                statusDiv.textContent = '❌ Network error';
+                statusDiv.style.color = '#dc3545';
+                alert('Error retrieving playlist: ' + error.message);
+            } finally {
+                retrieveBtn.disabled = false;
+                retrieveBtn.textContent = '📥 Retrieve';
+
+                // Clear status after 5 seconds
+                setTimeout(() => {
+                    statusDiv.textContent = '';
+                }, 5000);
+            }
+        }
+
+        // Load job files
+        async function loadJobFiles() {
+            if (!currentJobId) return;
+
+            const fileTypes = ['videos', 'music', 'sounds', 'quotes'];
+
+            for (let fileType of fileTypes) {
+                try {
+                    const response = await fetch(`/api/jobs/${currentJobId}/files/${fileType}`);
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        displayFileList(fileType, data.files);
+                    }
+                } catch (error) {
+                    console.error(`Error loading ${fileType}:`, error);
+                }
+            }
+        }
+
+        // Display file list
+        function displayFileList(fileType, files) {
+            const listElement = document.getElementById(`${fileType}-list`);
+
+            if (files.length === 0) {
+                listElement.innerHTML = '';
+                return;
+            }
+
+            const html = files.map(filename => `
+                <li class="file-item">
+                    <span class="file-item-name">${filename}</span>
+                    <button class="file-item-delete" onclick="deleteFile('${fileType}', '${filename}')">Delete</button>
+                </li>
+            `).join('');
+
+            listElement.innerHTML = html;
+        }
+
+        // Delete file
+        async function deleteFile(fileType, filename) {
+            if (!currentJobId) return;
+            if (!confirm(`Delete ${filename}?`)) return;
+
+            try {
+                const response = await fetch(`/api/jobs/${currentJobId}/files/${fileType}/${filename}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentFileCounts = data.file_counts;
+                    updateFileCounts();
+                    loadJobFiles();
+                    checkEnableSubmit();
+                } else {
+                    alert('Error deleting file: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error deleting file: ' + error.message);
+            }
+        }
+
+        // Update file counts
+        function updateFileCounts() {
+            document.getElementById('videos-count').textContent = currentFileCounts.videos;
+            document.getElementById('music-count').textContent = currentFileCounts.music;
+            document.getElementById('sounds-count').textContent = currentFileCounts.sounds;
+            document.getElementById('quotes-count').textContent = currentFileCounts.quotes;
+        }
+
+        // Check if submit should be enabled
+        function checkEnableSubmit() {
+            const hasVideos = currentFileCounts.videos > 0;
+            const submitBtn = document.getElementById('submit-btn');
+            const warning = document.getElementById('config-warning');
+
+            submitBtn.disabled = !hasVideos;
+            warning.style.display = hasVideos ? 'none' : 'block';
+        }
+
+        // Submit configuration and start job
+        document.getElementById('config-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!currentJobId) {
+                alert('No job prepared');
+                return;
+            }
+
+            const formData = new FormData(e.target);
+            const config = {};
+
+            for (let [key, value] of formData.entries()) {
+                if (key.includes('volume') || key.includes('duration') || key.includes('between')) {
+                    config[key] = parseFloat(value);
+                } else if (key === 'fps') {
+                    config[key] = parseInt(value);
+                } else {
+                    config[key] = value;
+                }
+            }
+
+            config.music_shuffle = document.getElementById('music_shuffle').checked;
+            config.quotes_shuffle = document.getElementById('quotes_shuffle').checked;
+            config.verbose = document.getElementById('verbose').checked;
+
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Starting Job...';
+
+            try {
+                const response = await fetch(`/api/jobs/${currentJobId}/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`Job #${data.job_id} started successfully!`);
+                    loadJobs();
+                } else {
+                    alert('Error starting job: ' + (data.error || 'Unknown error'));
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '🚀 Configure & Start Job';
+                }
+            } catch (error) {
+                alert('Error starting job: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Configure & Start Job';
+            }
+        });
+
+        // Submit existing files form
+        document.getElementById('existing-config-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const config = {};
+
+            for (let [key, value] of formData.entries()) {
+                if (key.includes('volume') || key.includes('duration') || key.includes('between')) {
+                    config[key] = parseFloat(value);
+                } else if (key === 'fps') {
+                    config[key] = parseInt(value);
+                } else {
+                    config[key] = value;
+                }
+            }
+
+            const checkboxes = e.target.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                config[cb.name] = cb.checked;
+            });
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            try {
+                const response = await fetch('/api/jobs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`Job #${data.job_id} submitted successfully!`);
+                    loadJobs();
+                } else {
+                    alert('Error submitting job: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error submitting job: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Start Video Build';
+            }
+        });
+
+        // Load file information (for existing files workflow)
+        async function loadFileInfo() {
+            try {
+                const response = await fetch('/api/files');
+                const data = await response.json();
+
+                const html = `
+                    <div class="file-list">
+                        <li><span class="file-count">${data.videos.length}</span> video(s)</li>
+                        <li><span class="file-count">${data.music.length}</span> music file(s)</li>
+                        <li><span class="file-count">${data.sounds.length}</span> sound(s)</li>
+                        <li><span class="file-count">${data.quotes.length}</span> quote file(s)</li>
+                    </div>
+                `;
+                document.getElementById('file-counts').innerHTML = html;
+            } catch (error) {
+                document.getElementById('file-counts').innerHTML = '<p style="color: #dc3545;">Error loading files</p>';
+            }
+        }
+
+        // Load jobs
+        async function loadJobs() {
+            try {
+                const response = await fetch('/api/jobs');
+                const data = await response.json();
+
+                const html = renderJobsList(data.jobs);
+
+                // Update both job lists
+                document.getElementById('jobs-list').innerHTML = html;
+                document.getElementById('existing-jobs-list').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading jobs:', error);
+            }
+        }
+
+        // Render jobs list
+        function renderJobsList(jobs) {
+            if (jobs.length === 0) {
+                return '<p style="text-align: center; color: #999;">No jobs yet.</p>';
+            }
+
+            return jobs.reverse().map(job => {
+                const statusClass = `status-${job.status}`;
+                const cardClass = job.status;
+
+                let actions = '';
+                if (job.status === 'running') {
+                    actions = `<button class="btn btn-small btn-cancel" onclick="cancelJob(${job.job_id})">Cancel</button>`;
+                } else if (job.status === 'completed' && job.output_file) {
+                    actions = `
+                        <button class="btn btn-small btn-download" onclick="downloadJob(${job.job_id})">Download</button>
+                        <button class="btn btn-small btn-youtube" onclick="openYouTubeModal(${job.job_id})">📺 YouTube</button>
+                    `;
+                }
+
+                const fileCountsHtml = job.file_counts ? `
+                    <div style="font-size: 0.85em; color: #666; margin: 5px 0;">
+                        📁 ${job.file_counts.videos}v / ${job.file_counts.music}m / ${job.file_counts.sounds}s / ${job.file_counts.quotes}q
+                    </div>
+                ` : '';
+
+                return `
+                    <div class="job-card ${cardClass}" id="job-${job.job_id}">
+                        <div class="job-header">
+                            <span class="job-id">Job #${job.job_id}</span>
+                            <span class="job-status ${statusClass}">${job.status}</span>
+                        </div>
+                        ${fileCountsHtml}
+                        ${job.current_step ? `<div style="margin: 5px 0; font-size: 0.9em; color: #666;">${job.current_step}</div>` : ''}
+                        ${job.status === 'running' ? `
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${job.progress}%"></div>
+                            </div>
+                            <div style="text-align: right; font-size: 0.85em; color: #666;">${job.progress}%</div>
+                        ` : ''}
+                        ${job.error ? `<div style="color: #dc3545; font-size: 0.9em; margin-top: 5px;">${job.error}</div>` : ''}
+                        ${actions ? `<div class="job-actions">${actions}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Cancel job
+        async function cancelJob(jobId) {
+            if (!confirm(`Cancel Job #${jobId}?`)) return;
+
+            try {
+                const response = await fetch(`/api/jobs/${jobId}/cancel`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    loadJobs();
+                }
+            } catch (error) {
+                alert('Error cancelling job: ' + error.message);
+            }
+        }
+
+        // Download job
+        function downloadJob(jobId) {
+            window.location.href = `/api/jobs/${jobId}/download`;
+        }
+
+        // Start polling for job updates
+        function startPolling() {
+            if (pollInterval) return;
+
+            pollInterval = setInterval(() => {
+                loadJobs();
+            }, 2000);
+        }
+
+        // Stop polling
+        function stopPolling() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+        }
+
+        // YouTube Upload Functionality
+        let currentYouTubeJobId = null;
+        let youtubeAuthenticated = false;
+
+        async function checkYouTubeAuth() {
+            try {
+                const response = await fetch('/api/youtube/auth/status');
+                const data = await response.json();
+                youtubeAuthenticated = data.authenticated;
+                return data.authenticated;
+            } catch (error) {
+                console.error('Error checking YouTube auth:', error);
+                return false;
+            }
+        }
+
+        async function openYouTubeModal(jobId) {
+            currentYouTubeJobId = jobId;
+            const modal = document.getElementById('youtube-modal');
+            modal.classList.add('active');
+
+            // Check authentication status
+            const isAuth = await checkYouTubeAuth();
+
+            if (isAuth) {
+                document.getElementById('youtube-auth-section').style.display = 'none';
+                document.getElementById('youtube-upload-form').classList.remove('hidden');
+            } else {
+                document.getElementById('youtube-auth-section').style.display = 'block';
+                document.getElementById('youtube-upload-form').classList.add('hidden');
+            }
+        }
+
+        function closeYouTubeModal() {
+            const modal = document.getElementById('youtube-modal');
+            modal.classList.remove('active');
+            currentYouTubeJobId = null;
+
+            // Reset form
+            document.getElementById('youtube-title').value = '';
+            document.getElementById('youtube-description').value = '';
+            document.getElementById('youtube-privacy').value = 'private';
+            document.getElementById('youtube-tags').value = '';
+            document.getElementById('youtube-category').value = '22';
+            document.getElementById('youtube-upload-status').textContent = '';
+        }
+
+        async function authenticateYouTube() {
+            try {
+                const response = await fetch('/api/youtube/auth/url');
+                const data = await response.json();
+
+                if (data.auth_url) {
+                    // Open OAuth window
+                    const width = 600;
+                    const height = 700;
+                    const left = (screen.width - width) / 2;
+                    const top = (screen.height - height) / 2;
+
+                    window.open(
+                        data.auth_url,
+                        'YouTube Authentication',
+                        `width=${width},height=${height},left=${left},top=${top}`
+                    );
+
+                    // Poll for authentication completion
+                    const checkAuth = setInterval(async () => {
+                        const isAuth = await checkYouTubeAuth();
+                        if (isAuth) {
+                            clearInterval(checkAuth);
+                            document.getElementById('youtube-auth-section').style.display = 'none';
+                            document.getElementById('youtube-upload-form').classList.remove('hidden');
+                        }
+                    }, 2000);
+                } else {
+                    alert('Error: ' + (data.error || data.message || 'Failed to get authorization URL'));
+                }
+            } catch (error) {
+                alert('Error starting authentication: ' + error.message);
+            }
+        }
+
+        // Handle YouTube upload form submission
+        document.getElementById('youtube-upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!currentYouTubeJobId) {
+                alert('No job selected');
+                return;
+            }
+
+            const title = document.getElementById('youtube-title').value.trim();
+            const description = document.getElementById('youtube-description').value.trim();
+            const privacy = document.getElementById('youtube-privacy').value;
+            const tagsInput = document.getElementById('youtube-tags').value.trim();
+            const category = document.getElementById('youtube-category').value;
+
+            if (!title) {
+                alert('Please enter a video title');
+                return;
+            }
+
+            const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
+
+            const submitBtn = document.getElementById('youtube-submit-btn');
+            const statusDiv = document.getElementById('youtube-upload-status');
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Uploading to YouTube...';
+            statusDiv.textContent = 'Uploading video to YouTube... This may take several minutes.';
+            statusDiv.style.color = '#667eea';
+
+            try {
+                const response = await fetch(`/api/jobs/${currentYouTubeJobId}/youtube/upload`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title,
+                        description,
+                        privacy,
+                        tags,
+                        category
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    statusDiv.textContent = `✅ Successfully uploaded! Video URL: ${data.video_url}`;
+                    statusDiv.style.color = '#28a745';
+
+                    // Show success message with link
+                    setTimeout(() => {
+                        alert(`Video uploaded successfully!\n\nWatch at: ${data.video_url}`);
+                        closeYouTubeModal();
+                    }, 1000);
+                } else {
+                    statusDiv.textContent = `❌ Upload failed: ${data.error || 'Unknown error'}`;
+                    statusDiv.style.color = '#dc3545';
+                    alert('Upload failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                statusDiv.textContent = '❌ Network error';
+                statusDiv.style.color = '#dc3545';
+                alert('Error uploading to YouTube: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '📤 Upload to YouTube';
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('youtube-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'youtube-modal') {
+                closeYouTubeModal();
+            }
+        });
+    </script>
+</body>
+</html>

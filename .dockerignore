@@ -3,6 +3,12 @@
 .gitignore
 .gitkeep
 
+# macOS files
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+
 # Python cache
 __pycache__
 *.py[cod]
@@ -23,7 +29,6 @@ ENV/
 *.swp
 *.swo
 *~
-.DS_Store
 
 # Temporary files
 .tmp/

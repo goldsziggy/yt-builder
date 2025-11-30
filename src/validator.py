@@ -99,6 +99,8 @@ def validate_directory_structure(config: Config) -> None:
         logger.warning("Video will be created without quotes")
     else:
         quote_files = get_files_by_format(config.quotes_dir, QUOTE_FORMATS)
+        # Filter out example files
+        quote_files = [f for f in quote_files if 'example' not in f.name.lower()]
         if not quote_files:
             logger.warning(f"No quote files found in {config.quotes_dir}")
             logger.warning("Video will be created without quotes")
@@ -117,6 +119,7 @@ def validate_directory_structure(config: Config) -> None:
 def get_files_by_format(directory: Path, formats: set) -> List[Path]:
     """
     Get all files in directory matching the given formats.
+    Ignores hidden files and macOS resource forks (._* files).
 
     Args:
         directory: Directory to search
@@ -130,6 +133,10 @@ def get_files_by_format(directory: Path, formats: set) -> List[Path]:
 
     files = []
     for file_path in directory.iterdir():
+        # Skip hidden files and macOS resource forks
+        if file_path.name.startswith('.') or file_path.name.startswith('._'):
+            continue
+
         if file_path.is_file() and file_path.suffix.lower() in formats:
             files.append(file_path)
 
