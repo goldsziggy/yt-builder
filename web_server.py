@@ -225,6 +225,7 @@ def run_job(job):
     cmd.extend(['--music-volume', str(config['music_volume'])])
     cmd.extend(['--sounds-volume', str(config['sounds_volume'])])
     cmd.extend(['--quote-style', config['quote_style']])
+    cmd.extend(['--quote-font', config.get('quote_font', 'TenPounds')])
 
     if config.get('music_shuffle'):
         cmd.append('--music-shuffle')
@@ -297,6 +298,13 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/fonts/<path:filename>')
+def serve_font(filename):
+    """Serve font files"""
+    from flask import send_from_directory
+    return send_from_directory('fonts', filename)
+
+
 @app.route('/api/config/defaults')
 def get_defaults():
     """Get default configuration values"""
@@ -311,6 +319,7 @@ def get_defaults():
         'music_volume': 0.7,
         'sounds_volume': 0.5,
         'quote_style': 'centered',
+        'quote_font': 'TenPounds',
         'music_shuffle': True,
         'quotes_shuffle': True,
         'verbose': True
@@ -683,6 +692,7 @@ def prepare_job():
             'music_volume': 0.7,
             'sounds_volume': 0.5,
             'quote_style': 'centered',
+            'quote_font': 'TenPounds',
             'music_shuffle': True,
             'quotes_shuffle': True,
             'verbose': True

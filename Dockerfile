@@ -48,6 +48,7 @@ COPY yt-builder.py .
 COPY web_server.py .
 COPY src/ ./src/
 COPY templates/ ./templates/
+COPY fonts/ ./fonts/
 
 # Create directories for media files and web server
 RUN mkdir -p videos music quotes sounds .tmp data runs secrets

@@ -31,6 +31,7 @@ class Config:
 
     # Visual options
     quote_style: str
+    quote_font: str
     transition: str
 
     # Utility options

@@ -172,6 +172,12 @@ Environment Variables (prefix: YT_BUILDER_):
         default=get_env_value('quote-style', str) or 'centered',
         help='Preset quote styling (default: centered, env: YT_BUILDER_QUOTE_STYLE)'
     )
+    parser.add_argument(
+        '--quote-font',
+        type=str,
+        default=get_env_value('quote-font', str) or 'TenPounds',
+        help='Font to use for quotes. Use font name or path to .ttf/.ttc file (default: TenPounds, env: YT_BUILDER_QUOTE_FONT)'
+    )
 
     # Utility options
     parser.add_argument(
@@ -226,6 +232,7 @@ def main():
             music_volume=args.music_volume,
             sounds_volume=args.sounds_volume,
             quote_style=args.quote_style,
+            quote_font=args.quote_font,
             transition=args.transition,
             verbose=args.verbose,
             dry_run=args.dry_run
@@ -250,6 +257,7 @@ def main():
             logger.info(f"Music Volume: {config.music_volume}")
             logger.info(f"Sounds Volume: {config.sounds_volume}")
             logger.info(f"Quote Style: {config.quote_style}")
+            logger.info(f"Quote Font: {config.quote_font}")
             logger.info(f"Transition: {config.transition}")
             logger.info("=" * 60)
             logger.info("No video will be rendered in dry-run mode.")

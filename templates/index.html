@@ -493,6 +493,52 @@
             color: #856404;
             border: 1px solid #ffeaa7;
         }
+
+        /* Font Preview Styles */
+        .font-preview {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 10px;
+            text-align: center;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .font-preview-text {
+            font-size: 24px;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        /* Load custom fonts */
+        @font-face {
+            font-family: 'TenPounds';
+            src: url('/fonts/TenPounds.ttf') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'Caveat';
+            src: url('/fonts/Caveat.ttf') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'Lora';
+            src: url('/fonts/Lora.ttf') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'Pacifico';
+            src: url('/fonts/Pacifico.ttf') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'EBGaramond';
+            src: url('/fonts/EBGaramond.ttf') format('truetype');
+        }
     </style>
 </head>
 <body>
@@ -689,6 +735,25 @@
 
                         <div class="form-group">
                             <label>
+                                Quote Font
+                                <span class="label-description">Font style for quote text</span>
+                            </label>
+                            <select id="quote_font" name="quote_font" onchange="updateFontPreview('quote_font')">
+                                <option value="TenPounds" selected>Ten Pounds (Hand-drawn)</option>
+                                <option value="Caveat">Caveat (Handwriting)</option>
+                                <option value="Lora">Lora (Elegant Serif)</option>
+                                <option value="Pacifico">Pacifico (Casual Script)</option>
+                                <option value="EBGaramond">EB Garamond (Classic Serif)</option>
+                            </select>
+                            <div class="font-preview" id="font-preview">
+                                <div class="font-preview-text" style="font-family: 'TenPounds';">
+                                    Sample Quote Preview
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
                                 Music Volume
                                 <span class="label-description">0.0 (silent) to 1.0 (full)</span>
                             </label>
@@ -823,6 +888,25 @@
                                 <option value="top">Top</option>
                                 <option value="minimal">Minimal</option>
                             </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Quote Font
+                                <span class="label-description">Font style for quote text</span>
+                            </label>
+                            <select name="quote_font" id="existing_quote_font" onchange="updateFontPreview('existing_quote_font')">
+                                <option value="TenPounds" selected>Ten Pounds (Hand-drawn)</option>
+                                <option value="Caveat">Caveat (Handwriting)</option>
+                                <option value="Lora">Lora (Elegant Serif)</option>
+                                <option value="Pacifico">Pacifico (Casual Script)</option>
+                                <option value="EBGaramond">EB Garamond (Classic Serif)</option>
+                            </select>
+                            <div class="font-preview" id="existing-font-preview">
+                                <div class="font-preview-text" style="font-family: 'TenPounds';">
+                                    Sample Quote Preview
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -1625,6 +1709,27 @@
                 closeYouTubeModal();
             }
         });
+
+        // Font preview functionality
+        function updateFontPreview(selectId) {
+            const select = document.getElementById(selectId);
+            const fontName = select.value;
+
+            // Determine which preview div to update
+            let previewDiv;
+            if (selectId === 'quote_font') {
+                previewDiv = document.getElementById('font-preview');
+            } else if (selectId === 'existing_quote_font') {
+                previewDiv = document.getElementById('existing-font-preview');
+            }
+
+            if (previewDiv) {
+                const previewText = previewDiv.querySelector('.font-preview-text');
+                if (previewText) {
+                    previewText.style.fontFamily = `'${fontName}'`;
+                }
+            }
+        }
     </script>
 </body>
 </html>

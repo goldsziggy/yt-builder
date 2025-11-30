@@ -24,6 +24,7 @@ class QuoteRenderer:
         """
         self.config = config
         self.quotes = self._load_quotes()
+        self._font_cache = {}  # Cache loaded fonts
 
     def _load_quotes(self) -> List[str]:
         """
@@ -120,6 +121,126 @@ class QuoteRenderer:
         logger.info(f"Parsed {len(quotes)} quote(s) from {file_path.name}")
         return quotes
 
+    def _load_font(self, font_size: int) -> ImageFont.ImageFont:
+        """
+        Load font based on configuration.
+
+        Args:
+            font_size: Font size in pixels
+
+        Returns:
+            ImageFont object
+        """
+        font_config = self.config.quote_font
+
+        # Check cache first
+        cache_key = (font_config, font_size)
+        if cache_key in self._font_cache:
+            return self._font_cache[cache_key]
+
+        font = None
+
+        # If font_config is 'default', use system defaults
+        if font_config == 'default':
+            font = self._load_default_font(font_size)
+        # If it's a path to a file
+        elif Path(font_config).exists() and Path(font_config).suffix.lower() in ['.ttf', '.ttc', '.otf']:
+            try:
+                font = ImageFont.truetype(font_config, font_size)
+                logger.info(f"Loaded custom font: {font_config}")
+            except Exception as e:
+                logger.warning(f"Failed to load font from {font_config}: {e}. Using default.")
+                font = self._load_default_font(font_size)
+        # Try as a font name (common font names)
+        else:
+            font = self._load_font_by_name(font_config, font_size)
+
+        # Cache the font
+        self._font_cache[cache_key] = font
+        return font
+
+    def _load_default_font(self, font_size: int) -> ImageFont.ImageFont:
+        """
+        Load default system font.
+
+        Args:
+            font_size: Font size in pixels
+
+        Returns:
+            ImageFont object
+        """
+        try:
+            # Try to use a system font (macOS)
+            return ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+        except:
+            try:
+                # Alternative font locations (Linux)
+                return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+            except:
+                # Fallback to default
+                logger.warning("Using default PIL font, text may not look optimal")
+                return ImageFont.load_default()
+
+    def _load_font_by_name(self, font_name: str, font_size: int) -> ImageFont.ImageFont:
+        """
+        Load font by common name.
+
+        Args:
+            font_name: Font name (e.g., 'Arial', 'Helvetica', 'Times New Roman')
+            font_size: Font size in pixels
+
+        Returns:
+            ImageFont object
+        """
+        # Common font locations by OS
+        font_paths = []
+
+        # First check local fonts/ directory (for custom fonts like TenPounds)
+        font_paths.extend([
+            f"fonts/{font_name}.ttf",
+            f"fonts/{font_name}.ttc",
+            f"fonts/{font_name}.otf",
+            # Also try lowercase
+            f"fonts/{font_name.lower()}.ttf",
+            f"fonts/{font_name.lower()}.ttc",
+            f"fonts/{font_name.lower()}.otf",
+        ])
+
+        # macOS font paths
+        font_paths.extend([
+            f"/System/Library/Fonts/{font_name}.ttc",
+            f"/System/Library/Fonts/{font_name}.ttf",
+            f"/Library/Fonts/{font_name}.ttf",
+            f"/Library/Fonts/{font_name}.ttc",
+        ])
+
+        # Linux font paths
+        font_paths.extend([
+            f"/usr/share/fonts/truetype/{font_name.lower()}/{font_name}.ttf",
+            f"/usr/share/fonts/truetype/{font_name.lower()}-bold/{font_name}-Bold.ttf",
+            f"/usr/share/fonts/TTF/{font_name}.ttf",
+        ])
+
+        # Windows font paths
+        font_paths.extend([
+            f"C:/Windows/Fonts/{font_name}.ttf",
+            f"C:/Windows/Fonts/{font_name}.ttc",
+        ])
+
+        # Try each path
+        for font_path in font_paths:
+            if Path(font_path).exists():
+                try:
+                    font = ImageFont.truetype(font_path, font_size)
+                    logger.info(f"Loaded font by name '{font_name}' from: {font_path}")
+                    return font
+                except Exception as e:
+                    logger.debug(f"Failed to load font from {font_path}: {e}")
+
+        # If no font found, use default
+        logger.warning(f"Could not find font '{font_name}', using default")
+        return self._load_default_font(font_size)
+
     def generate_quote_timings(self) -> List[Dict[str, Any]]:
         """
         Generate timing information for when quotes should appear.
@@ -194,18 +315,8 @@ class QuoteRenderer:
         # Determine font size based on resolution
         font_size = int(height / 20)  # Roughly 5% of height
 
-        # Try to load a nice font, fallback to default
-        try:
-            # Try to use a system font
-            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-        except:
-            try:
-                # Alternative font locations
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-            except:
-                # Fallback to default
-                font = ImageFont.load_default()
-                logger.warning("Using default font, text may not look optimal")
+        # Load font based on configuration
+        font = self._load_font(font_size)
 
         # Calculate text dimensions and wrap text
         max_width = int(width * 0.8)  # 80% of screen width
@@ -313,6 +424,55 @@ class QuoteRenderer:
 
         return '\n'.join(lines)
 
+    def _get_font_file_path(self) -> str:
+        """
+        Get the absolute path to the font file for ffmpeg.
+
+        Returns:
+            Absolute path to font file, or empty string if using default
+        """
+        font_config = self.config.quote_font
+
+        # If it's already a path to an existing file
+        if Path(font_config).exists() and Path(font_config).suffix.lower() in ['.ttf', '.ttc', '.otf']:
+            return str(Path(font_config).absolute())
+
+        # Check fonts/ directory
+        font_paths = [
+            f"fonts/{font_config}.ttf",
+            f"fonts/{font_config.lower()}.ttf",
+            f"fonts/{font_config}.ttc",
+            f"fonts/{font_config}.otf",
+        ]
+
+        for font_path in font_paths:
+            if Path(font_path).exists():
+                return str(Path(font_path).absolute())
+
+        # Try system fonts for common names
+        system_font_paths = []
+
+        # macOS
+        system_font_paths.extend([
+            f"/System/Library/Fonts/{font_config}.ttc",
+            f"/System/Library/Fonts/{font_config}.ttf",
+            f"/Library/Fonts/{font_config}.ttf",
+        ])
+
+        # Linux
+        system_font_paths.extend([
+            f"/usr/share/fonts/truetype/{font_config.lower()}/{font_config}.ttf",
+            f"/usr/share/fonts/TTF/{font_config}.ttf",
+        ])
+
+        for font_path in system_font_paths:
+            if Path(font_path).exists():
+                return str(Path(font_path).absolute())
+
+        # Return empty string to use ffmpeg default
+        logger.warning(f"Font '{font_config}' not found, ffmpeg will use default font")
+        return ""
+
     def get_drawtext_filter(self, timings: List[Dict[str, Any]]) -> str:
         """
         Generate ffmpeg drawtext filter for overlaying quotes.
@@ -327,6 +487,14 @@ class QuoteRenderer:
             return ""
 
         width, height = self.config.resolution
+
+        # Get font file path
+        font_file = self._get_font_file_path()
+
+        if font_file:
+            logger.info(f"Using custom font for quotes: {font_file}")
+        else:
+            logger.info("Using default system font for quotes")
 
         # Build drawtext filters
         filters = []
@@ -350,18 +518,30 @@ class QuoteRenderer:
             start_fade_in = timing['start']
             start_fade_out = timing['end'] - fade_duration
 
-            filter_str = (
-                f"drawtext="
-                f"text='{text}':"
-                f"fontsize=h/20:"
-                f"fontcolor=white:"
-                f"borderw=2:"
-                f"bordercolor=black:"
-                f"x=(w-text_w)/2:"
-                f"y={y_pos}:"
-                f"enable='between(t,{timing['start']},{timing['end']})':"
+            # Build filter string
+            filter_parts = [
+                f"drawtext=text='{text}'",
+            ]
+
+            # Add font file if available
+            if font_file:
+                # Escape colons in the font path for ffmpeg
+                escaped_font_path = font_file.replace(':', '\\:')
+                filter_parts.append(f"fontfile='{escaped_font_path}'")
+
+            # Add remaining parameters
+            filter_parts.extend([
+                "fontsize=h/20",
+                "fontcolor=white",
+                "borderw=2",
+                "bordercolor=black",
+                "x=(w-text_w)/2",
+                f"y={y_pos}",
+                f"enable='between(t,{timing['start']},{timing['end']})'",
                 f"alpha='if(lt(t,{start_fade_in + fade_duration}),(t-{start_fade_in})/{fade_duration},if(gt(t,{start_fade_out}),({timing['end']}-t)/{fade_duration},1))'"
-            )
+            ])
+
+            filter_str = ':'.join(filter_parts)
             filters.append(filter_str)
 
         return ','.join(filters)
