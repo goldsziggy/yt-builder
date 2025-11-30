@@ -70,11 +70,21 @@ class Database:
                 )
             ''')
 
+            # YouTube credentials table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS youtube_credentials (
+                    user_id TEXT PRIMARY KEY,
+                    credentials_json TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            ''')
+
             # Create indexes
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_job_files_job ON job_files(job_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_youtube_job ON youtube_uploads(job_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_youtube_creds_user ON youtube_credentials(user_id)')
 
             conn.commit()
 
@@ -329,6 +339,29 @@ class Database:
             max_id = row['max_id'] if row['max_id'] is not None else 0
             return max_id + 1
 
+    def get_old_preparing_jobs(self, hours: int = 1) -> List[Dict]:
+        """Get preparing jobs older than specified hours"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cutoff = datetime.now().timestamp() - (hours * 60 * 60)
+            cutoff_iso = datetime.fromtimestamp(cutoff).isoformat()
+
+            cursor.execute('''
+                SELECT * FROM jobs
+                WHERE status = 'preparing' AND created_at < ?
+                ORDER BY created_at ASC
+            ''', (cutoff_iso,))
+
+            return [self._row_to_dict(row) for row in cursor.fetchall()]
+
+    def delete_job(self, job_id: int) -> bool:
+        """Delete a job and its associated data (CASCADE will handle related records)"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM jobs WHERE job_id = ?', (job_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
     def cleanup_old_jobs(self, days: int = 30) -> int:
         """Delete jobs older than specified days"""
         with self._get_connection() as conn:
@@ -343,6 +376,42 @@ class Database:
 
             conn.commit()
             return cursor.rowcount
+
+    def save_youtube_credentials(self, user_id: str, credentials_json: str) -> bool:
+        """Save YouTube OAuth credentials for a user"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT OR REPLACE INTO youtube_credentials (user_id, credentials_json, updated_at)
+                VALUES (?, ?, ?)
+            ''', (
+                user_id,
+                credentials_json,
+                datetime.now().isoformat()
+            ))
+            conn.commit()
+            return True
+
+    def get_youtube_credentials(self, user_id: str) -> Optional[str]:
+        """Get YouTube OAuth credentials for a user"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT credentials_json FROM youtube_credentials
+                WHERE user_id = ?
+            ''', (user_id,))
+            row = cursor.fetchone()
+            if row:
+                return row['credentials_json']
+            return None
+
+    def delete_youtube_credentials(self, user_id: str) -> bool:
+        """Delete YouTube OAuth credentials for a user"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM youtube_credentials WHERE user_id = ?', (user_id,))
+            conn.commit()
+            return cursor.rowcount > 0
 
     def _row_to_dict(self, row: sqlite3.Row) -> Dict:
         """Convert database row to dictionary"""

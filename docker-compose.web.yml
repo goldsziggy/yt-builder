@@ -24,6 +24,15 @@ services:
       # Mount temp directory
       - ./.tmp:/app/.tmp
 
+      # Mount data directory for database and YouTube credentials persistence
+      - ./data:/app/data
+
+      # Mount runs directory for job persistence
+      - ./runs:/app/runs
+
+      # Mount secrets directory for OAuth credentials
+      - ./secrets:/app/secrets:ro
+
     environment:
       # Web server configuration
       PORT: "5000"

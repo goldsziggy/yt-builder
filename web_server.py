@@ -17,6 +17,7 @@ import requests
 from datetime import datetime
 from pathlib import Path
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
 from flask_cors import CORS
 
@@ -30,14 +31,27 @@ try:
     from google_auth_oauthlib.flow import Flow
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
+    from google.auth.transport.requests import Request
     YOUTUBE_AVAILABLE = True
 except ImportError:
     YOUTUBE_AVAILABLE = False
+    Request = None
     print("Warning: YouTube API libraries not installed. YouTube upload will be disabled.")
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 CORS(app)
+
+# Configure ProxyFix to handle X-Forwarded-* headers from reverse proxy
+# This ensures Flask correctly detects HTTPS when behind a proxy
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,  # Number of proxies to trust for X-Forwarded-For
+    x_proto=1,  # Number of proxies to trust for X-Forwarded-Proto
+    x_host=1,  # Number of proxies to trust for X-Forwarded-Host
+    x_port=1,  # Number of proxies to trust for X-Forwarded-Port
+    x_prefix=1  # Number of proxies to trust for X-Forwarded-Prefix
+)
 
 # Configuration
 RUNS_DIR = Path('runs')
@@ -174,6 +188,24 @@ class Job:
         return job
 
 
+def get_job_or_404(job_id):
+    """Get job from memory or database, return None if not found"""
+    # Check in-memory jobs first
+    job = jobs.get(job_id)
+    
+    # If not in memory, try loading from database
+    if not job:
+        job_data = db.get_job(job_id)
+        if job_data:
+            try:
+                job = Job.from_db(job_data)
+            except Exception as e:
+                print(f"Failed to load job {job_id} from database: {e}")
+                return None
+    
+    return job
+
+
 def run_job(job):
     """Run a video build job in background"""
     job.update_status('running')
@@ -279,8 +311,8 @@ def get_defaults():
         'music_volume': 0.7,
         'sounds_volume': 0.5,
         'quote_style': 'centered',
-        'music_shuffle': False,
-        'quotes_shuffle': False,
+        'music_shuffle': True,
+        'quotes_shuffle': True,
         'verbose': True
     })
 
@@ -627,6 +659,11 @@ def download_suno_playlist_endpoint(job_id):
 def prepare_job():
     """Create a new job without starting it (for file uploads)"""
     with job_lock:
+        # Clean up old preparing jobs before creating a new one
+        cleaned = cleanup_old_preparing_jobs(hours=1)
+        if cleaned > 0:
+            print(f"Cleaned up {cleaned} old preparing job(s) before creating new job")
+
         # Get next job ID from database
         job_id = db.get_next_job_id()
 
@@ -646,8 +683,8 @@ def prepare_job():
             'music_volume': 0.7,
             'sounds_volume': 0.5,
             'quote_style': 'centered',
-            'music_shuffle': False,
-            'quotes_shuffle': False,
+            'music_shuffle': True,
+            'quotes_shuffle': True,
             'verbose': True
         }
 
@@ -687,8 +724,8 @@ def start_job(job_id):
     # Change status to queued
     job.update_status('queued')
 
-    # Start job in background thread
-    thread = threading.Thread(target=run_job, args=(job,), daemon=True)
+    # Start job in background thread (non-daemon so it completes even if server shuts down)
+    thread = threading.Thread(target=run_job, args=(job,), daemon=False)
     thread.start()
 
     return jsonify(job.to_dict())
@@ -714,8 +751,8 @@ def create_job():
         job = Job(job_id, config, run_dir, run_identifier)
         jobs[job_id] = job
 
-        # Start job in background thread
-        thread = threading.Thread(target=run_job, args=(job,), daemon=True)
+        # Start job in background thread (non-daemon so it completes even if server shuts down)
+        thread = threading.Thread(target=run_job, args=(job,), daemon=False)
         thread.start()
 
     return jsonify({'job_id': job_id, 'run_id': run_identifier, 'status': 'queued'})
@@ -724,7 +761,7 @@ def create_job():
 @app.route('/api/jobs/<int:job_id>')
 def get_job(job_id):
     """Get job status"""
-    job = jobs.get(job_id)
+    job = get_job_or_404(job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
 
@@ -803,7 +840,7 @@ def list_jobs():
 @app.route('/api/jobs/<int:job_id>/download')
 def download_job(job_id):
     """Download the output file"""
-    job = jobs.get(job_id)
+    job = get_job_or_404(job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
 
@@ -822,6 +859,69 @@ YOUTUBE_API_VERSION = 'v3'
 youtube_credentials = {}
 
 
+def get_redirect_uri():
+    """Get the correct redirect URI, handling HTTPS behind proxy"""
+    # Check if BASE_URL is set (for explicit configuration)
+    base_url = os.environ.get('BASE_URL')
+    if base_url:
+        # Remove trailing slash if present
+        base_url = base_url.rstrip('/')
+        return f"{base_url}/api/youtube/auth/callback"
+    
+    # Otherwise use Flask's url_for with _external=True
+    # ProxyFix middleware will ensure HTTPS is detected correctly
+    return url_for('youtube_auth_callback', _external=True)
+
+
+def enable_oauth_insecure_transport(redirect_uri=None):
+    """Enable insecure transport for OAuth when running locally on HTTP"""
+    # Only enable insecure transport if explicitly in development mode
+    # and the redirect URI is actually HTTP (not HTTPS)
+    if redirect_uri and redirect_uri.startswith('http://'):
+        # Check if we're in development (localhost or 127.0.0.1)
+        if 'localhost' in redirect_uri or '127.0.0.1' in redirect_uri:
+            os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+        else:
+            # Production HTTP should not use insecure transport
+            os.environ.pop('OAUTHLIB_INSECURE_TRANSPORT', None)
+    else:
+        # HTTPS - don't use insecure transport
+        os.environ.pop('OAUTHLIB_INSECURE_TRANSPORT', None)
+
+
+def save_youtube_credentials(user_id: str, credentials):
+    """Save YouTube credentials to database"""
+    try:
+        credentials_json = credentials.to_json()
+        db.save_youtube_credentials(user_id, credentials_json)
+        # Also keep in memory for quick access
+        youtube_credentials[user_id] = credentials
+    except Exception as e:
+        print(f"Warning: Failed to save YouTube credentials: {e}")
+
+
+def load_youtube_credentials(user_id: str = 'default'):
+    """Load YouTube credentials from database"""
+    if not YOUTUBE_AVAILABLE or Request is None:
+        return None
+    
+    try:
+        credentials_json = db.get_youtube_credentials(user_id)
+        if credentials_json:
+            creds = Credentials.from_authorized_user_info(json.loads(credentials_json))
+            # Refresh token if expired
+            if creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+                # Save refreshed credentials
+                save_youtube_credentials(user_id, creds)
+            youtube_credentials[user_id] = creds
+            return creds
+    except Exception as e:
+        print(f"Warning: Failed to load YouTube credentials: {e}")
+    
+    return None
+
+
 def get_youtube_service(user_id='default'):
     """Get authenticated YouTube service"""
     if not YOUTUBE_AVAILABLE:
@@ -829,7 +929,19 @@ def get_youtube_service(user_id='default'):
 
     creds = youtube_credentials.get(user_id)
     if not creds:
-        return None
+        # Try loading from database
+        creds = load_youtube_credentials(user_id)
+        if not creds:
+            return None
+
+    # Check if credentials need refresh
+    if creds.expired and creds.refresh_token and Request is not None:
+        try:
+            creds.refresh(Request())
+            save_youtube_credentials(user_id, creds)
+        except Exception as e:
+            print(f"Warning: Failed to refresh credentials: {e}")
+            return None
 
     return build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, credentials=creds)
 
@@ -842,6 +954,10 @@ def youtube_auth_status():
 
     user_id = session.get('user_id', 'default')
     creds = youtube_credentials.get(user_id)
+    
+    # Try loading from database if not in memory
+    if not creds:
+        creds = load_youtube_credentials(user_id)
 
     return jsonify({
         'authenticated': creds is not None,
@@ -865,10 +981,16 @@ def youtube_auth_url():
         }), 400
 
     try:
+        # Get redirect URI first (handles HTTPS behind proxy)
+        redirect_uri = get_redirect_uri()
+        
+        # Enable insecure transport only for localhost development
+        enable_oauth_insecure_transport(redirect_uri)
+        
         flow = Flow.from_client_secrets_file(
             client_secrets_file,
             scopes=YOUTUBE_SCOPES,
-            redirect_uri=url_for('youtube_auth_callback', _external=True)
+            redirect_uri=redirect_uri
         )
 
         authorization_url, state = flow.authorization_url(
@@ -895,18 +1017,26 @@ def youtube_auth_callback():
     client_secrets_file = os.environ.get('YOUTUBE_CLIENT_SECRETS', 'secrets/client_secrets.json')
 
     try:
+        # Get redirect URI first (handles HTTPS behind proxy)
+        redirect_uri = get_redirect_uri()
+        
+        # Enable insecure transport only for localhost development
+        enable_oauth_insecure_transport(redirect_uri)
+        
         flow = Flow.from_client_secrets_file(
             client_secrets_file,
             scopes=YOUTUBE_SCOPES,
             state=state,
-            redirect_uri=url_for('youtube_auth_callback', _external=True)
+            redirect_uri=redirect_uri
         )
 
         flow.fetch_token(authorization_response=request.url)
 
         credentials = flow.credentials
         user_id = session.get('user_id', 'default')
-        youtube_credentials[user_id] = credentials
+        
+        # Save credentials to database for persistence
+        save_youtube_credentials(user_id, credentials)
 
         return """
         <html>
@@ -930,7 +1060,7 @@ def upload_to_youtube(job_id):
     if not YOUTUBE_AVAILABLE:
         return jsonify({'error': 'YouTube API not available'}), 400
 
-    job = jobs.get(job_id)
+    job = get_job_or_404(job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
 
@@ -1009,9 +1139,65 @@ def upload_to_youtube(job_id):
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
 
+def cleanup_old_preparing_jobs(hours: int = 1):
+    """Clean up old preparing jobs and their folders"""
+    old_jobs = db.get_old_preparing_jobs(hours=hours)
+    
+    if not old_jobs:
+        return 0
+    
+    cleaned_count = 0
+    for job_data in old_jobs:
+        try:
+            job_id = job_data['job_id']
+            run_dir = Path(job_data['run_dir'])
+            
+            # Delete the folder if it exists
+            if run_dir.exists():
+                try:
+                    shutil.rmtree(run_dir)
+                    print(f"  Deleted folder: {run_dir}")
+                except Exception as e:
+                    print(f"  Warning: Failed to delete folder {run_dir}: {e}")
+            
+            # Remove from in-memory jobs if present
+            if job_id in jobs:
+                del jobs[job_id]
+            
+            # Delete from database
+            db.delete_job(job_id)
+            cleaned_count += 1
+            print(f"  Cleaned up preparing job #{job_id} (created: {job_data['created_at']})")
+        except Exception as e:
+            print(f"  Error cleaning up job #{job_data.get('job_id', 'unknown')}: {e}")
+    
+    return cleaned_count
+
+
+def load_youtube_credentials_from_database():
+    """Load YouTube credentials from database on startup"""
+    if not YOUTUBE_AVAILABLE:
+        return
+    
+    try:
+        # Load default user credentials
+        creds = load_youtube_credentials('default')
+        if creds:
+            print("Loaded YouTube credentials from database")
+        else:
+            print("No YouTube credentials found in database")
+    except Exception as e:
+        print(f"Warning: Failed to load YouTube credentials on startup: {e}")
+
+
 def load_jobs_from_database():
     """Load existing jobs from database into memory"""
     print("Loading jobs from database...")
+
+    # First, clean up old preparing jobs
+    cleaned = cleanup_old_preparing_jobs(hours=1)
+    if cleaned > 0:
+        print(f"Cleaned up {cleaned} old preparing job(s)")
 
     db_jobs = db.get_all_jobs(limit=50)  # Load recent jobs
 
@@ -1034,6 +1220,9 @@ if __name__ == '__main__':
 
     # Load existing jobs from database
     load_jobs_from_database()
+    
+    # Load YouTube credentials from database
+    load_youtube_credentials_from_database()
 
     # Run the server
     port = int(os.environ.get('PORT', 5000))

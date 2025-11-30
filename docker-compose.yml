@@ -37,8 +37,8 @@ services:
       YT_BUILDER_QUOTES_MAX_BETWEEN: "30.0"
 
       # Shuffle options (true/false, 1/0, yes/no, on/off)
-      YT_BUILDER_MUSIC_SHUFFLE: "false"
-      YT_BUILDER_QUOTES_SHUFFLE: "false"
+      YT_BUILDER_MUSIC_SHUFFLE: "true"
+      YT_BUILDER_QUOTES_SHUFFLE: "true"
 
       # Output configuration
       YT_BUILDER_OUTPUT: "/app/output/video.mp4"

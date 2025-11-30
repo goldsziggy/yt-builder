@@ -37,6 +37,12 @@ wheels/
 output/
 !output/.gitkeep
 
+# Database files
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
 # But keep example directories
 !videos/.gitkeep
 !music/.gitkeep
