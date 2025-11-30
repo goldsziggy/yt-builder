@@ -30,7 +30,8 @@ class QuoteRenderer:
         """
         Load all quotes from quotes directory.
         - Ignores files with 'example' in the filename
-        - Supports quotes_all.txt with multiple quotes delimited by double quotes
+        - Supports multiple quotes per file (enclosed in double quotes)
+        - Falls back to treating entire file as single quote if no quotes found
 
         Returns:
             List of quote texts
@@ -56,13 +57,17 @@ class QuoteRenderer:
                         logger.warning(f"Empty quote file: {quote_file}")
                         continue
 
-                    # Special handling for quotes_all.txt
-                    if quote_file.name == 'quotes_all.txt':
-                        parsed_quotes = self._parse_quotes_all(content, quote_file)
+                    # Try to parse as multiple quotes (enclosed in double quotes)
+                    parsed_quotes = self._parse_quotes_all(content, quote_file)
+
+                    if parsed_quotes:
+                        # Found quotes enclosed in double quotes
                         quotes.extend(parsed_quotes)
                     else:
-                        # Regular single-quote file
+                        # No double quotes found - treat entire file as single quote
+                        # This provides backwards compatibility
                         quotes.append(content)
+                        logger.debug(f"Loaded single quote from {quote_file.name}")
 
             except UnicodeDecodeError as e:
                 logger.warning(f"Skipping file with encoding issue: {quote_file.name}")
@@ -74,15 +79,16 @@ class QuoteRenderer:
 
     def _parse_quotes_all(self, content: str, file_path: Path) -> List[str]:
         """
-        Parse quotes_all.txt file to extract multiple quotes.
+        Parse file content to extract multiple quotes.
         Each quote should be enclosed in double quotes.
+        Returns empty list if no quotes found (for backwards compatibility).
 
         Args:
             content: File content
             file_path: Path to file (for logging)
 
         Returns:
-            List of parsed quotes
+            List of parsed quotes (empty if no double-quoted strings found)
         """
         quotes = []
         in_quote = False
@@ -118,7 +124,9 @@ class QuoteRenderer:
         if in_quote:
             logger.warning(f"Unclosed quote in {file_path.name}")
 
-        logger.info(f"Parsed {len(quotes)} quote(s) from {file_path.name}")
+        if quotes:
+            logger.info(f"Parsed {len(quotes)} quote(s) from {file_path.name}")
+
         return quotes
 
     def _load_font(self, font_size: int) -> ImageFont.ImageFont:
