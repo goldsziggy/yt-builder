@@ -892,12 +892,23 @@ def enable_oauth_insecure_transport(redirect_uri=None):
 def save_youtube_credentials(user_id: str, credentials):
     """Save YouTube credentials to database"""
     try:
+        # Validate that credentials have required fields
+        if not credentials or not credentials.token:
+            raise ValueError("Credentials missing access token")
+        
+        # Check if refresh_token is present (important for token refresh)
+        if not credentials.refresh_token:
+            print(f"Warning: Credentials for user {user_id} do not contain a refresh_token. "
+                  "Token may expire and require re-authentication.")
+        
         credentials_json = credentials.to_json()
         db.save_youtube_credentials(user_id, credentials_json)
         # Also keep in memory for quick access
         youtube_credentials[user_id] = credentials
+        print(f"Saved YouTube credentials for user {user_id} (has_refresh_token={bool(credentials.refresh_token)})")
     except Exception as e:
         print(f"Warning: Failed to save YouTube credentials: {e}")
+        raise
 
 
 def load_youtube_credentials(user_id: str = 'default'):
@@ -909,15 +920,36 @@ def load_youtube_credentials(user_id: str = 'default'):
         credentials_json = db.get_youtube_credentials(user_id)
         if credentials_json:
             creds = Credentials.from_authorized_user_info(json.loads(credentials_json))
-            # Refresh token if expired
-            if creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-                # Save refreshed credentials
-                save_youtube_credentials(user_id, creds)
+            
+            # Check if credentials are expired
+            if creds.expired:
+                if not creds.refresh_token:
+                    print(f"Error: Credentials for user {user_id} are expired and missing refresh_token. "
+                          "Re-authentication required.")
+                    # Delete invalid credentials
+                    db.delete_youtube_credentials(user_id)
+                    youtube_credentials.pop(user_id, None)
+                    return None
+                
+                # Refresh token if expired and refresh_token exists
+                try:
+                    creds.refresh(Request())
+                    # Save refreshed credentials
+                    save_youtube_credentials(user_id, creds)
+                    print(f"Refreshed YouTube credentials for user {user_id}")
+                except Exception as refresh_error:
+                    print(f"Error: Failed to refresh credentials for user {user_id}: {refresh_error}")
+                    # If refresh fails, credentials are invalid - delete them
+                    db.delete_youtube_credentials(user_id)
+                    youtube_credentials.pop(user_id, None)
+                    return None
+            
             youtube_credentials[user_id] = creds
             return creds
     except Exception as e:
         print(f"Warning: Failed to load YouTube credentials: {e}")
+        import traceback
+        traceback.print_exc()
     
     return None
 
@@ -935,12 +967,29 @@ def get_youtube_service(user_id='default'):
             return None
 
     # Check if credentials need refresh
-    if creds.expired and creds.refresh_token and Request is not None:
-        try:
-            creds.refresh(Request())
-            save_youtube_credentials(user_id, creds)
-        except Exception as e:
-            print(f"Warning: Failed to refresh credentials: {e}")
+    if creds.expired:
+        if not creds.refresh_token:
+            print(f"Error: Credentials for user {user_id} are expired and missing refresh_token. "
+                  "Re-authentication required.")
+            # Delete invalid credentials
+            db.delete_youtube_credentials(user_id)
+            youtube_credentials.pop(user_id, None)
+            return None
+        
+        if Request is not None:
+            try:
+                creds.refresh(Request())
+                save_youtube_credentials(user_id, creds)
+            except Exception as e:
+                print(f"Error: Failed to refresh credentials for user {user_id}: {e}")
+                import traceback
+                traceback.print_exc()
+                # Delete invalid credentials
+                db.delete_youtube_credentials(user_id)
+                youtube_credentials.pop(user_id, None)
+                return None
+        else:
+            print(f"Error: Request object not available for token refresh")
             return None
 
     return build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, credentials=creds)
@@ -959,8 +1008,14 @@ def youtube_auth_status():
     if not creds:
         creds = load_youtube_credentials(user_id)
 
+    # Check if credentials are valid and have refresh token
+    has_refresh_token = creds.refresh_token is not None if creds else False
+    is_expired = creds.expired if creds else True
+
     return jsonify({
-        'authenticated': creds is not None,
+        'authenticated': creds is not None and not is_expired,
+        'has_refresh_token': has_refresh_token,
+        'is_expired': is_expired,
         'youtube_available': YOUTUBE_AVAILABLE
     })
 
@@ -995,7 +1050,8 @@ def youtube_auth_url():
 
         authorization_url, state = flow.authorization_url(
             access_type='offline',
-            include_granted_scopes='true'
+            include_granted_scopes='true',
+            prompt='consent'  # Force consent screen to ensure refresh_token is provided
         )
 
         session['oauth_state'] = state
@@ -1035,8 +1091,20 @@ def youtube_auth_callback():
         credentials = flow.credentials
         user_id = session.get('user_id', 'default')
         
+        # Validate credentials before saving
+        if not credentials or not credentials.token:
+            return "Authentication failed: No access token received", 400
+        
+        # Warn if refresh token is missing (shouldn't happen with prompt='consent')
+        if not credentials.refresh_token:
+            print(f"Warning: No refresh_token received for user {user_id}. "
+                  "Token will expire and require re-authentication.")
+        
         # Save credentials to database for persistence
-        save_youtube_credentials(user_id, credentials)
+        try:
+            save_youtube_credentials(user_id, credentials)
+        except Exception as e:
+            return f"Failed to save credentials: {str(e)}", 500
 
         return """
         <html>
@@ -1051,7 +1119,46 @@ def youtube_auth_callback():
         """
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return f"Authentication failed: {str(e)}", 400
+
+
+@app.route('/api/youtube/auth/revoke', methods=['POST'])
+def youtube_auth_revoke():
+    """Revoke and delete YouTube credentials"""
+    if not YOUTUBE_AVAILABLE:
+        return jsonify({'error': 'YouTube API not available'}), 400
+
+    user_id = session.get('user_id', 'default')
+    
+    try:
+        # Try to revoke the token if we have credentials
+        creds = youtube_credentials.get(user_id)
+        if not creds:
+            creds = load_youtube_credentials(user_id)
+        
+        if creds and creds.token:
+            try:
+                # Revoke the token with Google
+                requests.post(
+                    'https://oauth2.googleapis.com/revoke',
+                    params={'token': creds.token},
+                    headers={'content-type': 'application/x-www-form-urlencoded'}
+                )
+            except Exception as e:
+                print(f"Warning: Failed to revoke token with Google: {e}")
+        
+        # Delete credentials from database and memory
+        db.delete_youtube_credentials(user_id)
+        youtube_credentials.pop(user_id, None)
+        
+        return jsonify({
+            'success': True,
+            'message': 'YouTube credentials revoked and deleted'
+        })
+    except Exception as e:
+        return jsonify({'error': f'Failed to revoke credentials: {str(e)}'}), 500
 
 
 @app.route('/api/jobs/<int:job_id>/youtube/upload', methods=['POST'])
@@ -1071,7 +1178,24 @@ def upload_to_youtube(job_id):
     youtube = get_youtube_service(user_id)
 
     if not youtube:
-        return jsonify({'error': 'Not authenticated with YouTube'}), 401
+        # Check if credentials exist but are invalid
+        creds = youtube_credentials.get(user_id)
+        if not creds:
+            creds = load_youtube_credentials(user_id)
+        
+        error_msg = 'Not authenticated with YouTube'
+        if creds:
+            if creds.expired and not creds.refresh_token:
+                error_msg = 'YouTube credentials expired and missing refresh token. Please re-authenticate.'
+            elif creds.expired:
+                error_msg = 'YouTube credentials expired and refresh failed. Please re-authenticate.'
+            else:
+                error_msg = 'YouTube authentication failed. Please re-authenticate.'
+        
+        return jsonify({
+            'error': error_msg,
+            'requires_reauth': True
+        }), 401
 
     data = request.get_json()
     title = data.get('title', 'Video created with YT Builder')

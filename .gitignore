@@ -66,3 +66,5 @@ Thumbs.db
 # Secrets directory
 secrets/
 !secrets/.gitkeep
+
+runs/
